@@ -24,6 +24,7 @@ SOFTWARE.
 from fractions import Fraction
 
 
+
 class Vector:
     def __init__(self, terms):
         self.terms = terms
@@ -42,6 +43,13 @@ class Vector:
                 out.append((s, b))
 
         self.terms = list(filter(lambda x: x[0] != 0, out))
+
+    @staticmethod
+    def linear_map(func):
+        def lin_ext(self):
+            return Vector([(s * a, u) for (s, b) in self.terms for (a, u) in func(b).terms])
+
+        return lin_ext
 
     @staticmethod
     def to_vec(b):
@@ -105,8 +113,9 @@ class Vector:
     def __len__(self):
         return len(self.terms)
 
+    @linear_map
     @staticmethod
-    def __eulerian(w):
+    def eulerian(w):
         g = J
         terms = []
 
@@ -115,15 +124,6 @@ class Vector:
             g = conv(g, J)
 
         return sum(terms)
-
-    def eulerian(self):
-        return Vector(
-            [
-                (s * a, u)
-                for (s, b) in self.terms
-                for (a, u) in Vector.__eulerian(b).terms
-            ]
-        )
 
 
 class Tensor(Vector):
