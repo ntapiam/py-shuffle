@@ -22,11 +22,12 @@ SOFTWARE.
 """
 
 from fractions import Fraction
-
+from functools import reduce
+from operator import add, mul
 
 
 class Vector:
-    def __init__(self, terms):
+    def __init__(self, terms=[]):
         self.terms = terms
         self.__normalize()
 
@@ -43,11 +44,13 @@ class Vector:
                 out.append((s, b))
 
         self.terms = list(filter(lambda x: x[0] != 0, out))
+        self.terms = [(s, tuple(Vector.__flatten(b))) if isinstance(
+            b, tuple) else (s, (b,)) for (s, b) in self.terms]
 
     @staticmethod
     def linear_map(func):
-        def lin_ext(self):
-            return Vector([(s * a, u) for (s, b) in self.terms for (a, u) in func(b).terms])
+        def lin_ext(v):
+            return Vector([(s * a, u) for (s, b) in v.terms for (a, u) in func(b).terms])
 
         return lin_ext
 
@@ -56,28 +59,86 @@ class Vector:
         return Vector([(Fraction(1), b)])
 
     @staticmethod
-    def __deconc(w):
-        return [(w[:k], w[k:]) for k in range(len(w) + 1)]
-
-    @staticmethod
-    def __deconc_reduced(w):
-        return [(w[:k], w[k:]) for k in range(1, len(w))]
+    def zero(b=[]):
+        return Vector([(Fraction(0), b)])
 
     def deconc(self):
-        return Tensor([(s, d) for (s, w) in self.terms for d in Vector.__deconc(w)])
+        @Vector.linear_map
+        def deconc_basis(w):
+            if len(w) > 1:
+                raise ValueError("method not defined for this basis")
+            w = w[0]
+            if w == []:
+                return Vector.to_vec(([], []))
 
-    def deconc_reduced(self):
-        return Tensor(
-            [(s, d) for (s, w) in self.terms for d in Vector.__deconc_reduced(w)]
-        )
+            terms = [Vector.to_vec((w[:k], w[k:])) for k in range(len(w) + 1)]
+            return reduce(add, terms, Vector.zero())
+
+        return deconc_basis(self)
+
+    def unshuf(self):
+        @Vector.linear_map
+        def unshuf_basis(w):
+            if len(w) > 1:
+                raise ValueError("method not definied for this basis")
+            w = w[0]
+            if w == []:
+                return Vector.to_vec(([], []))
+
+            terms = [Vector.to_vec(([], [a])) +
+                     Vector.to_vec(([a], [])) for a in w]
+            return reduce(mul, terms, Vector.to_vec(([], [])))
+
+        return unshuf_basis(self)
+
+    def shuffle(self, other):
+        if self.terms == [] or other.terms == []:
+            return Vector.zero()
+        if self.terms[0][1] == ([],):
+            return other
+        if other.terms[0][1] == ([],):
+            return self
+
+        terms = reduce(add, (r * s * Vector.to_vec(u).shuffle(Vector.to_vec(v[0][:-1])) * Vector.to_vec([v[0][-1]])
+                       for (r, u) in self.terms
+                       for (s, v) in other.terms),
+                       Vector.zero())
+
+        terms += reduce(add, (r * s * Vector.to_vec(u[0][:-1]).shuffle(Vector.to_vec(v[0])) * Vector.to_vec([u[0][-1]])
+                        for (r, u) in self.terms
+                        for (s, v) in other.terms),
+                        Vector.zero())
+
+        return terms
+
+    def shuffle_conv(self, f, g):
+        @Vector.linear_map
+        def conv_basis(w):
+            a, b = w
+            return f(Vector.to_vec((a,))).shuffle(g(Vector.to_vec((b,))))
+
+        tensors = self.deconc()
+        return conv_basis(tensors)
+
+    def cat_conv(self, f, g):
+        @Vector.linear_map
+        def conv_basis(w):
+            a, b = w
+            return f(Vector.to_vec((a,))) * g(Vector.to_vec((b,)))
+
+        tensors = self.unshuf()
+        return conv_basis(tensors)
+
+    def __flatten(t):
+        for i in t:
+            yield from [i] if not isinstance(i, tuple) else Vector.__flatten(i)
 
     def outer(self, other):
-        return Tensor(
-            [(a * b, (u, v)) for (a, u) in self.terms for (b, v) in other.terms]
-        )
+        @Vector.linear_map
+        def outer_basis(b):
+            return Vector([(s, tuple(Vector.__flatten((a, b)))) for (s, a) in self.terms])
 
-    def __radd__(self, other):
-        return self + other
+        return outer_basis(other)
 
     def __add__(self, other):
         if isinstance(other, (int, float, Fraction)):
@@ -85,89 +146,111 @@ class Vector:
 
         return Vector(self.terms + other.terms)
 
-    def conv(self, f, g):
-        copr = self.deconc()
-        img = Tensor(
-            [
-                (s * a * b, (u, v))
-                for (s, (x, y)) in copr.terms
-                for (a, u) in f(x).terms
-                for (b, v) in g(y).terms
-            ]
-        )
-        return img.shuffle()
+    def __mul__(self, other):
+        @Vector.linear_map
+        def mul_basis(b):
+            n = len(b)
+            if n % 2 != 0:
+                raise ValueError(
+                    "can only concatenate with same tensor order?")
+            return Vector.to_vec(tuple(u + v for (u, v) in zip(b[:n // 2], b[n // 2:])))
+
+        return mul_basis(self.outer(other))
+
+    def __rmul__(self, s):
+        return Vector([(r * s, b) for (r, b) in self.terms])
+
+    def __eq__(self, other):
+        return self.terms == other.terms
 
     def __repr__(self):
-        strings = [f"{s}⋅{b}" for (s, b) in self.terms]
-        return "+".join(strings)
+        def coef_to_string(k, s):
+            if k == 0:
+                if s >= 0:
+                    return f"{s}⋅" if s != 1 else ""
+                else:
+                    return f"{-s}⋅" if s != -1 else " -"
 
-    def __rmul__(self, a):
-        return a * self
+            else:
+                if s >= 0:
+                    return f" + {s}⋅" if s != 1 else " + "
+                else:
+                    return f" - {-s}⋅" if s != -1 else " - "
 
-    def __mul__(self, a):
-        return Vector([(a * s, b) for (s, b) in self.terms])
-
-    def __neg__(self):
-        return Vector([(-s, b) for (s, b) in self.terms])
-
-    def __len__(self):
-        return len(self.terms)
-
-    @linear_map
-    @staticmethod
-    def eulerian(w):
-        g = J
-        terms = []
-
-        for k in range(len(w)):
-            terms.append(g(w) * Fraction((-1) ** k, k + 1))
-            g = conv(g, J)
-
-        return sum(terms)
+        strings = [f"{coef_to_string(k, s)}{'⊗'.join(map(str, b))}" for (k, (
+            s, b)) in enumerate(self.terms)]
+        return "".join(strings)
 
 
-class Tensor(Vector):
-    def __init__(self, terms):
-        Vector.__init__(self, terms)
-
-    def __repr__(self):
-        strings = [f"{s}⋅{b[0]}⊗{b[1]}" for (s, b) in self.terms]
-        return " ".join(strings)
-
-    @staticmethod
-    def __shuffle(u, v):
-        if u == []:
-            return [v]
-
-        if v == []:
-            return [u]
-
-        result = [w + [u[-1]] for w in Tensor.__shuffle(u[:-1], v)]
-        result += [w + [v[-1]] for w in Tensor.__shuffle(u, v[:-1])]
-
-        return result
-
-    def shuffle(self):
-        return Vector(
-            [(s, w) for (s, (u, v)) in self.terms for w in Tensor.__shuffle(u, v)]
-        )
+@Vector.linear_map
+def J(b):
+    return Vector.to_vec(b) if b != ([],) else Vector.zero()
 
 
-def J(x):
-    return Vector.to_vec(x) if x != [] else Vector([(Fraction(0), [])])
+@Vector.linear_map
+def Y(b):
+    return len(b[0]) * Vector.to_vec(b)
 
 
-def conv(f, g):
-    def u(x):
-        if not isinstance(x, Vector):
-            x = Vector.to_vec(x)
-        return x.conv(f, g)
+@Vector.linear_map
+def S(b):
+    return (-1) ** (len(b[0])) * Vector.to_vec(b[0][::-1])
 
-    return u
+
+def sh_conv(f, g):
+    def inner(v):
+        return v.shuffle_conv(f, g)
+
+    return inner
+
+
+def cat_conv(f, g):
+    def inner(v):
+        return v.cat_conv(f, g)
+
+    return inner
+
+
+@Vector.linear_map
+def sh_eulerian(b):
+    g = J
+    out = Vector.zero()
+    for k in range(len(b[0])):
+        out += Fraction((-1) ** k, k + 1) * g(Vector.to_vec(b))
+        g = sh_conv(g, J)
+
+    return out
+
+
+@Vector.linear_map
+def cat_eulerian(b):
+    g = J
+    out = Vector.zero()
+    for k in range(len(b[0])):
+        out += Fraction((-1) ** k, k + 1) * g(Vector.to_vec(b))
+        g = cat_conv(g, J)
+
+    return out
+
+
+def sh_D(x):
+    return x.shuffle_conv(S, Y)
+
+
+def cat_D(x):
+    return x.cat_conv(S, Y)
 
 
 if __name__ == "__main__":
-    from pprint import pprint
+    for k in range(1, 6):
+        x = Vector.to_vec(list(range(1, k + 1)))
+        a = sh_eulerian(x)
+        b = cat_eulerian(x)
+        c = sh_D(x)
+        d = cat_D(x)
 
-    x = Vector([(Fraction(1), [1, 1, 2, 2])])
-    pprint(x.eulerian())
+        print(f"Vector: {x}")
+        print("In the (ш, Δ) Hopf algebra:")
+        print(f"\te₁(x) = {a}\r\n\tD(x) = {c}\n\r")
+        print("In the (⊗, Δ_ш) Hopf algbera:")
+        print(f"\te₁(x) = {b}\r\n\tD(x) = {c}\n\r")
