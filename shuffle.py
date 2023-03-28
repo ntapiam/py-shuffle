@@ -44,13 +44,17 @@ class Vector:
                 out.append((s, b))
 
         self.terms = list(filter(lambda x: x[0] != 0, out))
-        self.terms = [(s, tuple(Vector.__flatten(b))) if isinstance(
-            b, tuple) else (s, (b,)) for (s, b) in self.terms]
+        self.terms = [
+            (s, tuple(Vector.__flatten(b))) if isinstance(b, tuple) else (s, (b,))
+            for (s, b) in self.terms
+        ]
 
     @staticmethod
     def linear_map(func):
         def lin_ext(v):
-            return Vector([(s * a, u) for (s, b) in v.terms for (a, u) in func(b).terms])
+            return Vector(
+                [(s * a, u) for (s, b) in v.terms for (a, u) in func(b).terms]
+            )
 
         return lin_ext
 
@@ -85,8 +89,7 @@ class Vector:
             if w == []:
                 return Vector.to_vec(([], []))
 
-            terms = [Vector.to_vec(([], [a])) +
-                     Vector.to_vec(([a], [])) for a in w]
+            terms = [Vector.to_vec(([], [a])) + Vector.to_vec(([a], [])) for a in w]
             return reduce(mul, terms, Vector.to_vec(([], [])))
 
         return unshuf_basis(self)
@@ -99,15 +102,31 @@ class Vector:
         if other.terms[0][1] == ([],):
             return self
 
-        terms = reduce(add, (r * s * Vector.to_vec(u).shuffle(Vector.to_vec(v[0][:-1])) * Vector.to_vec([v[0][-1]])
-                       for (r, u) in self.terms
-                       for (s, v) in other.terms),
-                       Vector.zero())
+        terms = reduce(
+            add,
+            (
+                r
+                * s
+                * Vector.to_vec(u).shuffle(Vector.to_vec(v[0][:-1]))
+                * Vector.to_vec([v[0][-1]])
+                for (r, u) in self.terms
+                for (s, v) in other.terms
+            ),
+            Vector.zero(),
+        )
 
-        terms += reduce(add, (r * s * Vector.to_vec(u[0][:-1]).shuffle(Vector.to_vec(v[0])) * Vector.to_vec([u[0][-1]])
-                        for (r, u) in self.terms
-                        for (s, v) in other.terms),
-                        Vector.zero())
+        terms += reduce(
+            add,
+            (
+                r
+                * s
+                * Vector.to_vec(u[0][:-1]).shuffle(Vector.to_vec(v[0]))
+                * Vector.to_vec([u[0][-1]])
+                for (r, u) in self.terms
+                for (s, v) in other.terms
+            ),
+            Vector.zero(),
+        )
 
         return terms
 
@@ -136,7 +155,9 @@ class Vector:
     def outer(self, other):
         @Vector.linear_map
         def outer_basis(b):
-            return Vector([(s, tuple(Vector.__flatten((a, b)))) for (s, a) in self.terms])
+            return Vector(
+                [(s, tuple(Vector.__flatten((a, b)))) for (s, a) in self.terms]
+            )
 
         return outer_basis(other)
 
@@ -151,9 +172,10 @@ class Vector:
         def mul_basis(b):
             n = len(b)
             if n % 2 != 0:
-                raise ValueError(
-                    "can only concatenate with same tensor order?")
-            return Vector.to_vec(tuple(u + v for (u, v) in zip(b[:n // 2], b[n // 2:])))
+                raise ValueError("can only concatenate with same tensor order?")
+            return Vector.to_vec(
+                tuple(u + v for (u, v) in zip(b[: n // 2], b[n // 2 :]))
+            )
 
         return mul_basis(self.outer(other))
 
@@ -177,8 +199,10 @@ class Vector:
                 else:
                     return f" - {-s}⋅" if s != -1 else " - "
 
-        strings = [f"{coef_to_string(k, s)}{'⊗'.join(map(str, b))}" for (k, (
-            s, b)) in enumerate(self.terms)]
+        strings = [
+            f"{coef_to_string(k, s)}{'⊗'.join(map(str, b))}"
+            for (k, (s, b)) in enumerate(self.terms)
+        ]
         return "".join(strings)
 
 
