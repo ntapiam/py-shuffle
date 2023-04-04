@@ -69,13 +69,11 @@ class Vector:
     def deconc(self):
         @Vector.linear_map
         def deconc_basis(w):
-            if len(w) > 1:
-                raise ValueError("method not defined for this basis")
-            w = w[0]
-            if w == []:
-                return Vector.to_vec(([], []))
+            u = w[0]
+            if u == []:
+                return Vector.to_vec(([], [], w[1:]))
 
-            terms = [Vector.to_vec((w[:k], w[k:])) for k in range(len(w) + 1)]
+            terms = [Vector.to_vec((u[:k], u[k:], w[1:])) for k in range(len(u) + 1)]
             return reduce(add, terms, Vector.zero())
 
         return deconc_basis(self)
