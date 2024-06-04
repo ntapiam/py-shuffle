@@ -171,6 +171,9 @@ class Vector:
 
         return self + Fraction(-1) * other
 
+    def __neg__(self):
+        return Fraction(-1) * self
+
     def __mul__(self, other):
         @Vector.linear_map
         def mul_basis(b):
@@ -267,11 +270,11 @@ def cat_eulerian(b):
 
 
 def sh_D(x):
-    return x.shuffle_conv(S, Y)
+    return x.shuffle_conv(Y, S)
 
 
 def cat_D(x):
-    return x.cat_conv(S, Y)
+    return x.cat_conv(Y, S)
 
 
 if __name__ == "__main__":
