@@ -199,11 +199,13 @@ class Vector:
 
     def __repr__(self):
         def coef_to_string(k, s):
+            print(k, s)
             if k == 0:
+                print(s >= 0)
                 if s >= 0:
                     return f"{s}⋅" if s != 1 else ""
                 else:
-                    return f"{-s}⋅" if s != -1 else " -"
+                    return f"{s}⋅" if s != -1 else "-"
 
             else:
                 if s >= 0:
