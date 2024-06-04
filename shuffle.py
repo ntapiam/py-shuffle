@@ -165,6 +165,12 @@ class Vector:
 
         return Vector(self.terms + other.terms)
 
+    def __sub__(self, other):
+        if isinstance(other, (int, float, Fraction)):
+            other = Vector([(other, [])])
+
+        return self + Fraction(-1) * other
+
     def __mul__(self, other):
         @Vector.linear_map
         def mul_basis(b):
@@ -178,6 +184,11 @@ class Vector:
         return mul_basis(self.outer(other))
 
     def __rmul__(self, s):
+        s = Fraction(s) if isinstance(s, int) else s
+        return Vector([(r * s, b) for (r, b) in self.terms])
+
+    def __truediv__(self, s):
+        s = 1 / Fraction(s) if isinstance(s, (int, Fraction)) else 1/s
         return Vector([(r * s, b) for (r, b) in self.terms])
 
     def __eq__(self, other):
@@ -201,7 +212,7 @@ class Vector:
             f"{coef_to_string(k, s)}{'⊗'.join(map(str, b))}"
             for (k, (s, b)) in enumerate(self.terms)
         ]
-        return "".join(strings)
+        return "".join(strings) if strings else "0"
 
 
 @Vector.linear_map
