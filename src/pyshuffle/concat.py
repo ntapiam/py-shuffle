@@ -1,7 +1,6 @@
 from functools import reduce
 from operator import mul
 from .vector import Vector
-from fractions import Fraction
 
 
 class Concat(Vector):
@@ -21,15 +20,6 @@ class Concat(Vector):
             return reduce(mul, terms, Concat.to_vec(([], [])))
 
         return unshuf_basis(self)
-
-    def conv(self, f, g):
-        @Concat.linear_map
-        def conv_basis(w):
-            a, b = w
-            return f(Concat.to_vec((a,))) * g(Concat.to_vec((b,)))
-
-        tensors = self.coprod()
-        return conv_basis(tensors)
 
     def __mul__(self, other):
         @Concat.linear_map
