@@ -30,4 +30,4 @@ def test_conv():
 
     r = Concat.to_vec([1, 2]) + Concat.to_vec([2, 1])
 
-    assert x.conv(lambda a: a.J(), lambda a: a.J()) == r
+    assert Concat.conv(Concat.J, Concat.J)(x) == r

@@ -23,6 +23,6 @@ def test_prod():
 
 def test_conv():
     x = Shuffle.to_vec([1, 2])
-
     r = Shuffle.to_vec([1, 2]) + Shuffle.to_vec([2, 1])
-    assert x.conv(lambda a: a.J(), lambda a: a.J()) == r
+
+    assert Shuffle.conv(Shuffle.J, Shuffle.J)(x) == r
