@@ -1,4 +1,3 @@
-from fractions import Fraction
 from functools import reduce
 from operator import add
 from .vector import Vector
@@ -64,76 +63,60 @@ class Shuffle(Vector):
         y = Concat(other.terms)
         return Shuffle((x * y).terms)
 
-    def conv(self, f, g):
+    @staticmethod
+    def conv(f, g):
         @Shuffle.linear_map
         def conv_basis(w):
             a, b = w
             return f(Shuffle.to_vec((a,))).__mul__(g(Shuffle.to_vec((b,))))
 
-        tensors = self.coprod()
-        return conv_basis(tensors)
+        return lambda x: conv_basis(x.coprod())
 
-    def J(self):
+    @staticmethod
+    def J(x):
         @Shuffle.linear_map
         def J_basis(b):
             return Shuffle.to_vec(b) if b != ([],) else Shuffle.zero()
 
-        return J_basis(self)
+        return J_basis(x)
 
-    def Y(self):
+    @staticmethod
+    def Y(x):
         @Shuffle.linear_map
         def Y_basis(b):
             return len(b[0]) * Shuffle.to_vec(b)
 
-        return Y_basis(self)
+        return Y_basis(x)
 
-    def S(self):
+    @staticmethod
+    def Yinv(x):
+        @Shuffle.linear_map
+        def Y_basis(b):
+            return Shuffle.to_vec(b) / len(b[0])
+
+        return Y_basis(x)
+
+    @staticmethod
+    def S(x):
         @Shuffle.linear_map
         def S_basis(b):
             return (-1) ** (len(b[0])) * Shuffle.to_vec(b[0][::-1])
 
-        return S_basis(self)
+        return S_basis(x)
 
+    @staticmethod
+    def eulerian(x):
+        @Shuffle.linear_map
+        def e_basis(b):
+            g = Shuffle.J
+            res = Shuffle.zero()
+            for k in range(len(b[0])):
+                res += (-1) ** k * g(Shuffle.to_vec(b)) / (k + 1)
+                g = Shuffle.conv(g, Shuffle.J)
+            return res
 
-def sh_conv(f, g):
-    def inner(v):
-        return v.shuffle_conv(f, g)
+        return e_basis(x)
 
-    return inner
-
-
-def cat_conv(f, g):
-    def inner(v):
-        return v.cat_conv(f, g)
-
-    return inner
-
-
-@Vector.linear_map
-def sh_eulerian(b):
-    g = J
-    out = Shuffle.zero()
-    for k in range(len(b[0])):
-        out += Fraction((-1) ** k, k + 1) * g(Shuffle.to_vec(b))
-        g = sh_conv(g, J)
-
-    return out
-
-
-@Vector.linear_map
-def cat_eulerian(b):
-    g = J
-    out = Vector.zero()
-    for k in range(len(b[0])):
-        out += Fraction((-1) ** k, k + 1) * g(Vector.to_vec(b))
-        g = cat_conv(g, J)
-
-    return out
-
-
-def sh_D(x):
-    return x.conv(Y, S)
-
-
-def cat_D(x):
-    return x.conv(Y, S)
+    @staticmethod
+    def D(x):
+        return Shuffle.Yinv(Shuffle.conv(Shuffle.Y, Shuffle.S)(x))

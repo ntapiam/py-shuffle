@@ -1,6 +1,7 @@
 from functools import reduce
 from operator import mul
 from .vector import Vector
+from fractions import Fraction
 
 
 class Concat(Vector):
@@ -42,23 +43,60 @@ class Concat(Vector):
 
         return mul_basis(self.outer(other))
 
-    def J(self):
+    @staticmethod
+    def conv(f, g):
+        @Concat.linear_map
+        def conv_basis(w):
+            a, b = w
+            return f(Concat.to_vec((a,))).__mul__(g(Concat.to_vec((b,))))
+
+        return lambda x: conv_basis(x.coprod())
+
+    @staticmethod
+    def J(x):
         @Concat.linear_map
         def J_basis(b):
             return Concat.to_vec(b) if b != ([],) else Concat.zero()
 
-        return J_basis(self)
+        return J_basis(x)
 
-    def Y(self):
+    @staticmethod
+    def Y(x):
         @Concat.linear_map
         def Y_basis(b):
             return len(b[0]) * Concat.to_vec(b)
 
-        return Y_basis(self)
+        return Y_basis(x)
 
-    def S(self):
+    @staticmethod
+    def Yinv(x):
+        @Concat.linear_map
+        def Y_basis(b):
+            return Concat.to_vec(b) / len(b[0])
+
+        return Y_basis(x)
+
+    @staticmethod
+    def S(x):
         @Concat.linear_map
         def S_basis(b):
             return (-1) ** (len(b[0])) * Concat.to_vec(b[0][::-1])
 
-        return S_basis(self)
+        return S_basis(x)
+
+    @staticmethod
+    def eulerian(x):
+        @Concat.linear_map
+        def e_basis(b):
+            g = Concat.J
+            res = Concat.zero()
+            for k in range(len(b[0])):
+                res += (-1) ** k * g(Concat.to_vec(b)) / (k + 1)
+                g = Concat.conv(g, Concat.J)
+            return res
+
+        return e_basis(x)
+
+    @staticmethod
+    def D(x):
+        return Concat.Yinv(Concat.conv(Concat.Y, Concat.S)(x))
