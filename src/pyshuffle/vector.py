@@ -88,7 +88,7 @@ class Vector:
                     return f" - {-s}⋅" if s != -1 else " - "
 
         strings = [
-            f"{coef_to_string(k, s)}{'⊗'.join(map(str, b))}"
+            f"{coef_to_string(k, s)}{'⊗'.join(map(lambda a: ''.join(map(str, a)), b))}"
             for (k, (s, b)) in enumerate(self.terms)
         ]
         return "".join(strings) if strings else "0"
