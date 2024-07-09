@@ -6,17 +6,17 @@ from .concat import Concat
 
 class Monomial:
     __table = {
-            "0": u"\u2070",
-            "1": u"\u00B9",
-            "2": u"\u00B2",
-            "3": u"\u00B3",
-            "4": u"\u2074",
-            "5": u"\u2075",
-            "6": u"\u2076",
-            "7": u"\u2077",
-            "8": u"\u2078",
-            "9": u"\u2079",
-            }
+        "0": "\u2070",
+        "1": "\u00b9",
+        "2": "\u00b2",
+        "3": "\u00b3",
+        "4": "\u2074",
+        "5": "\u2075",
+        "6": "\u2076",
+        "7": "\u2077",
+        "8": "\u2078",
+        "9": "\u2079",
+    }
 
     def __init__(self, exps={}):
         self.exps = exps
@@ -124,32 +124,108 @@ class QShuffle(Vector):
         y = Concat(other.terms)
         return QShuffle((x * y).terms)
 
-    def conv(self, f, g):
+    def __R(self):
+        @QShuffle.linear_map
+        def R_basis(b):
+            b = b[0]
+            if b == []:
+                return QShuffle.zero()
+
+            return QShuffle.to_vec(b[::-1])
+        return R_basis(self)
+
+    def __T(self):
+        @QShuffle.linear_map
+        def T_basis(b):
+            b = b[0]
+            if b == []:
+                return QShuffle.zero()
+
+            return (-1) ** len(b) * QShuffle.to_vec(b)
+        return T_basis(self)
+
+    def __contract(self, m):
+        @QShuffle.linear_map
+        def contract_basis(b):
+            b = b[0]
+            if b == []:
+                return QShuffle.zero()
+
+            return QShuffle.to_vec([m * b[0]]).__conc(QShuffle.to_vec(b[1:]))
+        return contract_basis(self)
+
+    def __Sigma(self):
+        @QShuffle.linear_map
+        def Sigma_basis(b):
+            b = b[0]
+            if b == []:
+                return QShuffle.zero()
+
+            if len(b) == 1:
+                return QShuffle.to_vec(b)
+
+            w = QShuffle.to_vec(b[1:]).__Sigma()
+            a = QShuffle.to_vec([b[0]])
+            return a.__conc(w) + w.__contract(b[0])
+                
+        return Sigma_basis(self)
+
+    @staticmethod
+    def conv(f, g):
         @QShuffle.linear_map
         def conv_basis(w):
             a, b = w
             return f(QShuffle.to_vec((a,))).__mul__(g(QShuffle.to_vec((b,))))
 
-        tensors = self.coprod()
-        return conv_basis(tensors)
+        return lambda x: conv_basis(x.coprod())
 
-    def J(self):
+    @staticmethod
+    def J(x):
         @QShuffle.linear_map
         def J_basis(b):
             return QShuffle.to_vec(b) if b != ([],) else QShuffle.zero()
 
-        return J_basis(self)
+        return J_basis(x)
 
-    def Y(self):
+    @staticmethod
+    def Y(x):
         @QShuffle.linear_map
         def Y_basis(b):
-            return b[0][0].weight() * QShuffle.to_vec(b)
+            if b[0] == []:
+                return QShuffle.zero()
+            we = sum(map(lambda x: x.weight(), b[0]))
+            return we * QShuffle.to_vec(b)
 
-        return Y_basis(self)
+        return Y_basis(x)
 
-    def S(self):
+    @staticmethod
+    def Yinv(x):
         @QShuffle.linear_map
-        def S_basis(b):
-            return (-1) ** (len(b[0])) * QShuffle.to_vec(b[0][::-1])
+        def Y_basis(b):
+            if b[0] == []:
+                return QShuffle.zero()
+            we = sum(map(lambda x: x.weight(), b[0]))
+            return QShuffle.to_vec(b) / we
 
-        return S_basis(self)
+        return Y_basis(x)
+
+    @staticmethod
+    def S(x):
+        return x.__T().__Sigma().__R()
+
+    @staticmethod
+    def eulerian(x):
+        @QShuffle.linear_map
+        def e_basis(b):
+            g = QShuffle.J
+            res = QShuffle.zero()
+            for k in range(len(b[0])):
+                res += (-1) ** k * g(QShuffle.to_vec(b[0])) / (k + 1)
+                g = QShuffle.conv(g, QShuffle.J)
+            return res
+
+        return e_basis(x)
+
+    @staticmethod
+    def D(x):
+        return QShuffle.Yinv(QShuffle.conv(QShuffle.Y, QShuffle.S)(x))
