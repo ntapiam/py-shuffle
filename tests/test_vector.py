@@ -1,4 +1,4 @@
-from shuffle import Vector
+from pyshuffle.vector import Vector
 from fractions import Fraction
 from functools import reduce
 from operator import add
