@@ -65,7 +65,7 @@ class Shuffle(Vector):
         return Shuffle((x * y).terms)
 
     def conv(self, f, g):
-        @Vector.linear_map
+        @Shuffle.linear_map
         def conv_basis(w):
             a, b = w
             return f(Shuffle.to_vec((a,))).__mul__(g(Shuffle.to_vec((b,))))
@@ -74,21 +74,21 @@ class Shuffle(Vector):
         return conv_basis(tensors)
 
     def J(self):
-        @Vector.linear_map
+        @Shuffle.linear_map
         def J_basis(b):
             return Shuffle.to_vec(b) if b != ([],) else Shuffle.zero()
 
         return J_basis(self)
 
     def Y(self):
-        @Vector.linear_map
+        @Shuffle.linear_map
         def Y_basis(b):
             return len(b[0]) * Shuffle.to_vec(b)
 
         return Y_basis(self)
 
     def S(self):
-        @Vector.linear_map
+        @Shuffle.linear_map
         def S_basis(b):
             return (-1) ** (len(b[0])) * Shuffle.to_vec(b[0][::-1])
 
@@ -137,14 +137,3 @@ def sh_D(x):
 
 def cat_D(x):
     return x.conv(Y, S)
-
-
-if __name__ == "__main__":
-    for k in range(1, 6):
-        x = Shuffle.to_vec(list(range(1, k + 1)))
-        a = sh_eulerian(x)
-        c = sh_D(x)
-
-        print(f"Vector: {x}")
-        print("In the (ш, Δ) Hopf algebra:")
-        print(f"\te₁(x) = {a}\r\n\tD(x) = {c}\n\r")

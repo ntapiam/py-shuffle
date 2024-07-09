@@ -41,3 +41,24 @@ class Concat(Vector):
             )
 
         return mul_basis(self.outer(other))
+
+    def J(self):
+        @Concat.linear_map
+        def J_basis(b):
+            return Concat.to_vec(b) if b != ([],) else Concat.zero()
+
+        return J_basis(self)
+
+    def Y(self):
+        @Concat.linear_map
+        def Y_basis(b):
+            return len(b[0]) * Concat.to_vec(b)
+
+        return Y_basis(self)
+
+    def S(self):
+        @Concat.linear_map
+        def S_basis(b):
+            return (-1) ** (len(b[0])) * Concat.to_vec(b[0][::-1])
+
+        return S_basis(self)
